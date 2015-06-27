@@ -32,13 +32,17 @@ import android.widget.ToggleButton;
  */
 public class ALStartActivity extends Activity implements View.OnClickListener {
 
-    public static final String USE_AREA_LEARNING = 
+    public static final String USE_AREA_LEARNING =
             "com.projecttango.areadescriptionjava.usearealearning";
+    public static final String USE_AUTO =
+            "com.projecttango.areadescriptionjava.useauto";
     public static final String LOAD_ADF = "com.projecttango.areadescriptionjava.loadadf";
     private ToggleButton mLearningModeToggleButton;
     private ToggleButton mLoadADFToggleButton;
     private Button mStartButton;
+    private Button mAutoButton;
     private boolean mIsUseAreaLearning;
+    private boolean mIsAuto;
     private boolean mIsLoadADF;
 
     @Override
@@ -49,10 +53,12 @@ public class ALStartActivity extends Activity implements View.OnClickListener {
         mLearningModeToggleButton = (ToggleButton) findViewById(R.id.learningmode);
         mLoadADFToggleButton = (ToggleButton) findViewById(R.id.loadadf);
         mStartButton = (Button) findViewById(R.id.start);
+        mAutoButton = (Button) findViewById(R.id.auto);
         findViewById(R.id.ADFListView).setOnClickListener(this);
         mLearningModeToggleButton.setOnClickListener(this);
         mLoadADFToggleButton.setOnClickListener(this);
         mStartButton.setOnClickListener(this);
+        mAutoButton.setOnClickListener(this);
         startActivityForResult(
                 Tango.getRequestPermissionIntent(Tango.PERMISSIONTYPE_MOTION_TRACKING), 0);
         startActivityForResult(
@@ -63,18 +69,21 @@ public class ALStartActivity extends Activity implements View.OnClickListener {
     @Override
     public void onClick(View v) {
         switch (v.getId()) {
-        case R.id.loadadf:
-            mIsLoadADF = mLoadADFToggleButton.isChecked();
-            break;
-        case R.id.learningmode:
-            mIsUseAreaLearning = mLearningModeToggleButton.isChecked();
-            break;
-        case R.id.start:
-            startAreaDescriptionActivity();
-            break;
-        case R.id.ADFListView:
-            startADFListView();
-            break;
+            case R.id.loadadf:
+                mIsLoadADF = mLoadADFToggleButton.isChecked();
+                break;
+            case R.id.learningmode:
+                mIsUseAreaLearning = mLearningModeToggleButton.isChecked();
+                break;
+            case R.id.start:
+                startAreaDescriptionActivity();
+            case R.id.auto:
+                mIsAuto = true;
+                startAreaDescriptionActivity();
+                break;
+            case R.id.ADFListView:
+                startADFListView();
+                break;
         }
     }
 

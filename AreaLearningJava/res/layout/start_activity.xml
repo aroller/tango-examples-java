@@ -29,6 +29,13 @@
         android:textSize="15sp" />
 
     <Button
+        android:id="@+id/auto"
+        android:layout_width="150dp"
+        android:layout_height="wrap_content"
+        android:text="@string/auto_config"
+        android:textSize="15sp" />
+
+    <Button
         android:id="@+id/ADFListView"
         android:layout_width="150dp"
         android:layout_height="wrap_content"

@@ -46,8 +46,8 @@ import android.widget.Toast;
  */
 public class MainActivity extends Activity {
     private static final String TAG = MainActivity.class.getSimpleName();
-    private static final String sTranslationFormat = "Translation: %f, %f, %f";
-    private static final String sRotationFormat = "Rotation: %f, %f, %f, %f";
+    private static final String sTranslationFormat = "Translation: %.3f, %.3f, %.3f";
+    private static final String sRotationFormat = "Rotation: %.3f, %.3f, %.3f, %.3f";
 
     private TextView mTranslationTextView;
     private TextView mRotationTextView;

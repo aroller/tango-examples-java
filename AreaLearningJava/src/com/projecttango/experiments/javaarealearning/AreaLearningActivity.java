@@ -67,6 +67,10 @@ public class AreaLearningActivity extends Activity implements View.OnClickListen
     private TextView mAdf2DeviceQuatTextView;
     private TextView mAdf2StartQuatTextView;
     private TextView mTangoServiceVersionTextView;
+    /**
+     * general description of what the device knows
+     */
+    private TextView mAwarenessTextView;
     private TextView mApplicationVersionTextView;
     private TextView mUUIDTextView;
     private TextView mStart2DevicePoseStatusTextView;
@@ -100,6 +104,7 @@ public class AreaLearningActivity extends Activity implements View.OnClickListen
 
     private boolean mIsRelocalized;
     private boolean mIsLearningMode;
+    private boolean mIsAutoMode;
     private boolean mIsConstantSpaceRelocalize;
     private String mCurrentUUID;
 
@@ -143,6 +148,8 @@ public class AreaLearningActivity extends Activity implements View.OnClickListen
 
         mTangoServiceVersionTextView = (TextView) findViewById(R.id.version);
         mApplicationVersionTextView = (TextView) findViewById(R.id.appversion);
+        mAwarenessTextView = (TextView) findViewById(R.id.awareness);
+
         mGLView = (GLSurfaceView) findViewById(R.id.gl_surface_view);
 
         mSaveAdf = (Button) findViewById(R.id.saveAdf);
@@ -166,17 +173,26 @@ public class AreaLearningActivity extends Activity implements View.OnClickListen
         mRenderer = new ALRenderer();
         mGLView.setEGLContextClientVersion(2);
         mGLView.setRenderer(mRenderer);
+        initializeNewTangoService();
 
+
+        startUIThread();
+    }
+
+    /**
+     * provides a new tango service session allowing for multiple attempts to localize against different ADF.
+     */
+    private void initializeNewTangoService() {
         // Instantiate the Tango service
         mTango = new Tango(this);
         mIsRelocalized = false;
 
         Intent intent = getIntent();
         mIsLearningMode = intent.getBooleanExtra(ALStartActivity.USE_AREA_LEARNING, false);
+        mIsAutoMode = intent.getBooleanExtra(ALStartActivity.USE_AUTO, false);
         mIsConstantSpaceRelocalize = intent.getBooleanExtra(ALStartActivity.LOAD_ADF, false);
         setTangoConfig();
         mPoses = new TangoPoseData[3];
-        startUIThread();
     }
 
     private void setTangoConfig() {
@@ -188,6 +204,12 @@ public class AreaLearningActivity extends Activity implements View.OnClickListen
             mConfig.putBoolean(TangoConfig.KEY_BOOLEAN_LEARNINGMODE, true);
             // Set the ADF save button visible.
             mSaveAdf.setVisibility(View.VISIBLE);
+            mSaveAdf.setOnClickListener(this);
+        }
+        if (mIsAutoMode) {
+            // Set learning mode to config.
+            mConfig.putBoolean(TangoConfig.KEY_BOOLEAN_LEARNINGMODE, true);
+            //the save button is not necessary since saving will be automatic
             mSaveAdf.setOnClickListener(this);
         }
         // Check for Load ADF/Constant Space relocalization mode
@@ -209,6 +231,18 @@ public class AreaLearningActivity extends Activity implements View.OnClickListen
             }
         }
 
+        //update awareness
+        if (!mIsLearningMode && !mIsConstantSpaceRelocalize) {
+            mAwarenessTextView.setText(getString(R.string.awareness_looking_only));
+        } else if (mIsLearningMode && !mIsConstantSpaceRelocalize) {
+            mAwarenessTextView.setText(getString(R.string.awareness_learning));
+        } else if (!mIsLearningMode && mIsConstantSpaceRelocalize) {
+            mAwarenessTextView.setText(getString(R.string.awareness_memory));
+        } else if (mIsLearningMode && mIsConstantSpaceRelocalize) {
+            mAwarenessTextView.setText(getString(R.string.awareness_memory_learning));
+        } else {
+            mAwarenessTextView.setText(getString(R.string.awareness_unknown));
+        }
         // Set the number of loop closures to zero at start.
         mStart2DevicePoseCount = 0;
         mAdf2DevicePoseCount = 0;
@@ -260,12 +294,14 @@ public class AreaLearningActivity extends Activity implements View.OnClickListen
                     // Check for Device wrt ADF pose, Device wrt Start of Service pose,
                     // Start of Service wrt ADF pose(This pose determines if device
                     // the is relocalized or not).
+                    //from the perspective of the loaded ADF file that can be matched
                     if (pose.baseFrame == TangoPoseData.COORDINATE_FRAME_AREA_DESCRIPTION
                             && pose.targetFrame == TangoPoseData.COORDINATE_FRAME_DEVICE) {
                         mPoses[0] = pose;
                         if (mAdf2DevicePreviousPoseStatus != pose.statusCode) {
                             // Set the count to zero when status code changes.
                             mAdf2DevicePoseCount = 0;
+
                         }
                         mAdf2DevicePreviousPoseStatus = pose.statusCode;
                         mAdf2DevicePoseCount++;
@@ -278,7 +314,10 @@ public class AreaLearningActivity extends Activity implements View.OnClickListen
                             updateRenderer = true;
                             mRenderer.getGreenTrajectory().updateTrajectory(translation);
                         }
-                    } else if (pose.baseFrame == TangoPoseData.COORDINATE_FRAME_START_OF_SERVICE
+
+                    }
+                    //from the persective of the device this session
+                    else if (pose.baseFrame == TangoPoseData.COORDINATE_FRAME_START_OF_SERVICE
                             && pose.targetFrame == TangoPoseData.COORDINATE_FRAME_DEVICE) {
                         mPoses[1] = pose;
                         if (mStart2DevicePreviousPoseStatus != pose.statusCode) {
@@ -299,7 +338,9 @@ public class AreaLearningActivity extends Activity implements View.OnClickListen
                                 mRenderer.getBlueTrajectory().updateTrajectory(translation);
                             }
                         }
-                    } else if (pose.baseFrame == TangoPoseData.COORDINATE_FRAME_AREA_DESCRIPTION
+                    }
+                    //the position of the device when it started up in the coordinates of the ADF file, if matched
+                    else if (pose.baseFrame == TangoPoseData.COORDINATE_FRAME_AREA_DESCRIPTION
                             && pose.targetFrame == TangoPoseData.COORDINATE_FRAME_START_OF_SERVICE) {
                         mPoses[2] = pose;
                         if (mAdf2StartPreviousPoseStatus != pose.statusCode) {
@@ -321,6 +362,7 @@ public class AreaLearningActivity extends Activity implements View.OnClickListen
                             // Set the color blue
                         }
                     }
+
 
                     // Update the trajectory, model matrix, and view matrix, then
                     // render the scene again
@@ -381,6 +423,9 @@ public class AreaLearningActivity extends Activity implements View.OnClickListen
             Toast.makeText(getApplicationContext(), getString(R.string.tango_invalid),
                     Toast.LENGTH_SHORT).show();
             return;
+        } catch (Exception e) {
+            Toast.makeText(getApplicationContext(), getString(R.string.tango_error),
+                    Toast.LENGTH_SHORT).show();
         }
         Toast.makeText(getApplicationContext(), getString(R.string.adf_save) + mCurrentUUID,
                 Toast.LENGTH_SHORT).show();
@@ -389,7 +434,7 @@ public class AreaLearningActivity extends Activity implements View.OnClickListen
     /**
      * Updates the text view in UI screen with the Pose. Each pose is associated with Target and
      * Base Frame. We need to check for that pair and update our views accordingly.
-     * 
+     *
      * @param pose
      */
     private void updateTextViews() {
@@ -401,6 +446,22 @@ public class AreaLearningActivity extends Activity implements View.OnClickListen
             mAdf2DevicePoseStatusTextView.setText(getPoseStatus(mPoses[0]));
             mAdf2DevicePoseCountTextView.setText(Integer.toString(mAdf2DevicePoseCount));
             mAdf2DevicePoseDeltaTextView.setText(threeDec.format(mAdf2DevicePoseDelta));
+
+            TangoPoseData pose = mPoses[0];
+            //update the awareness text.  this caused problems in the listener thread.
+            if (pose.statusCode == TangoPoseData.POSE_INITIALIZING) {
+                mAwarenessTextView.setText(getString(R.string.awareness_memory_initializing));
+            } else if (pose.statusCode == TangoPoseData.POSE_VALID) {
+                mAwarenessTextView.setText(getString(R.string.awareness_memory_valid));
+            } else if (pose.statusCode == TangoPoseData.POSE_INVALID) {
+                if (mIsConstantSpaceRelocalize) {
+                    mAwarenessTextView.setText(getString(R.string.awareness_memory_invalid));
+                } else {
+                    mAwarenessTextView.setText(getString(R.string.awareness_invalid));
+                }
+            } else {
+                mAwarenessTextView.setText(getString(R.string.awareness_memory_unknown));
+            }
         }
 
         if (mPoses[1] != null
@@ -440,14 +501,14 @@ public class AreaLearningActivity extends Activity implements View.OnClickListen
 
     private String getPoseStatus(TangoPoseData pose) {
         switch (pose.statusCode) {
-        case TangoPoseData.POSE_INITIALIZING:
-            return getString(R.string.pose_initializing);
-        case TangoPoseData.POSE_INVALID:
-            return getString(R.string.pose_invalid);
-        case TangoPoseData.POSE_VALID:
-            return getString(R.string.pose_valid);
-        default:
-            return getString(R.string.pose_unknown);
+            case TangoPoseData.POSE_INITIALIZING:
+                return getString(R.string.pose_initializing);
+            case TangoPoseData.POSE_INVALID:
+                return getString(R.string.pose_invalid);
+            case TangoPoseData.POSE_VALID:
+                return getString(R.string.pose_valid);
+            default:
+                return getString(R.string.pose_unknown);
         }
     }
 
@@ -488,27 +549,28 @@ public class AreaLearningActivity extends Activity implements View.OnClickListen
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        mTango.disconnect();
     }
 
     // OnClick Button Listener for all the buttons
     @Override
     public void onClick(View v) {
         switch (v.getId()) {
-        case R.id.first_person_button:
-            mRenderer.setFirstPersonView();
-            break;
-        case R.id.top_down_button:
-            mRenderer.setTopDownView();
-            break;
-        case R.id.third_person_button:
-            mRenderer.setThirdPersonView();
-            break;
-        case R.id.saveAdf:
-            saveAdf();
-            break;
-        default:
-            Log.w(TAG, "Unknown button click");
-            return;
+            case R.id.first_person_button:
+                mRenderer.setFirstPersonView();
+                break;
+            case R.id.top_down_button:
+                mRenderer.setTopDownView();
+                break;
+            case R.id.third_person_button:
+                mRenderer.setThirdPersonView();
+                break;
+            case R.id.saveAdf:
+                saveAdf();
+                break;
+            default:
+                Log.w(TAG, "Unknown button click");
+                return;
         }
     }
 

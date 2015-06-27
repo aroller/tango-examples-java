@@ -319,6 +319,26 @@
         </LinearLayout>
     </LinearLayout>
 
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_centerVertical="true"
+        android:layout_alignParentLeft="true"
+        android:layout_alignParentStart="true">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/awareness" />
+
+        <TextView
+            android:id="@+id/awareness"
+            android:layout_width="399dp"
+            android:layout_height="wrap_content"
+            android:text="@string/na" />
+    </LinearLayout>
+
     <Button
         android:id="@+id/top_down_button"
         android:layout_width="wrap_content"
